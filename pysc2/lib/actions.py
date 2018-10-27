@@ -36,10 +36,13 @@ class ActionSpace(enum.Enum):
 
 def spatial(action, action_space):
   """Choose the action space for the action proto."""
+  # The action here is of type <s2clientprotocol.sc2api_pb2.Action>
   if action_space == ActionSpace.FEATURES:
     return action.action_feature_layer
   elif action_space == ActionSpace.RGB:
     return action.action_render
+  elif action_space == ActionSpace.RAW:
+    return action.action_raw
   else:
     raise ValueError("Unexpected value for action_space: %s" % action_space)
 
@@ -50,11 +53,17 @@ def no_op(action, action_space):
 
 def move_camera(action, action_space, minimap):
   """Move the camera."""
+  if action_space == ActionSpace.RAW:
+    print('Invalid action %s in raw interface' % str(action))
+    return
   minimap.assign_to(spatial(action, action_space).camera_move.center_minimap)
 
 
 def select_point(action, action_space, select_point_act, screen):
   """Select a unit at a point."""
+  if action_space == ActionSpace.RAW:
+    print('Invalid action %s in raw interface' % str(action))
+    return
   select = spatial(action, action_space).unit_selection_point
   screen.assign_to(select.selection_screen_coord)
   select.type = select_point_act
@@ -62,6 +71,9 @@ def select_point(action, action_space, select_point_act, screen):
 
 def select_rect(action, action_space, select_add, screen, screen2):
   """Select units within a rectangle."""
+  if action_space == ActionSpace.RAW:
+    print('Invalid action %s in raw interface' % str(action))
+    return
   select = spatial(action, action_space).unit_selection_rect
   out_rect = select.selection_screen_coord.add()
   screen_rect = point.Rect(screen, screen2)
@@ -131,6 +143,9 @@ def cmd_quick(action, action_space, ability_id, queued):
 
 def cmd_screen(action, action_space, ability_id, queued, screen):
   """Do a command that needs a point on the screen."""
+  if action_space == ActionSpace.RAW:
+    print('Invalid action %s in raw interface' % str(action))
+    return
   action_cmd = spatial(action, action_space).unit_command
   action_cmd.ability_id = ability_id
   action_cmd.queue_command = queued
@@ -139,6 +154,9 @@ def cmd_screen(action, action_space, ability_id, queued, screen):
 
 def cmd_minimap(action, action_space, ability_id, queued, minimap):
   """Do a command that needs a point on the minimap."""
+  if action_space == ActionSpace.RAW:
+    print('Invalid action %s in raw interface' % str(action))
+    return
   action_cmd = spatial(action, action_space).unit_command
   action_cmd.ability_id = ability_id
   action_cmd.queue_command = queued
