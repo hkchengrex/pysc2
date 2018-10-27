@@ -1079,7 +1079,7 @@ class Features(object):
     return list(available_actions)
 
   @sw.decorate
-  def transform_action(self, obs, func_call, skip_available=False):
+  def transform_action(self, obs, func_call, skip_available=False, is_raw=False):
     """Tranform an agent-style action to one that SC2 can consume.
 
     Args:
@@ -1139,7 +1139,12 @@ class Features(object):
     # Call the right callback to get an SC2 action proto.
     sc2_action = sc_pb.Action()
     kwargs["action"] = sc2_action
-    kwargs["action_space"] = aif.action_space
+
+    if not is_raw:
+      kwargs["action_space"] = aif.action_space
+    else:
+      kwargs["action_space"] = actions.ActionSpace.RAW
+
     if func.ability_id:
       kwargs["ability_id"] = func.ability_id
     actions.FUNCTIONS[func_id].function_type(**kwargs)

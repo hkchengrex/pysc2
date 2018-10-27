@@ -31,6 +31,7 @@ from s2clientprotocol import ui_pb2 as sc_ui
 class ActionSpace(enum.Enum):
   FEATURES = 1
   RGB = 2
+  RAW = 3
 
 
 def spatial(action, action_space):
