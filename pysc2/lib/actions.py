@@ -162,6 +162,15 @@ def cmd_minimap(action, action_space, ability_id, queued, minimap):
   action_cmd.queue_command = queued
   minimap.assign_to(action_cmd.target_minimap_coord)
 
+def cmd_raw(action, action_space, ability_id, queued):
+  """Do a command that needs a raw point."""
+  # action_cmd = spatial(action, action_space).unit_command
+  # action_cmd.ability_id = ability_id
+  # action_cmd.queue_command = queued
+  # minimap.assign_to(action_cmd.target_minimap_coord)
+  # TODO: I don't know what to do here
+  pass
+
 
 def autocast(action, action_space, ability_id):
   """Toggle autocast."""
@@ -221,7 +230,7 @@ class ArgumentType(collections.namedtuple(
 class Arguments(collections.namedtuple("Arguments", [
     "screen", "minimap", "screen2", "queued", "control_group_act",
     "control_group_id", "select_point_act", "select_add", "select_unit_act",
-    "select_unit_id", "select_worker", "build_queue_id", "unload_id"])):
+    "select_unit_id", "select_worker", "build_queue_id", "unload_id", 'raw'])):
   """The full list of argument types.
 
   Take a look at TYPES and FUNCTION_TYPES for more details.
@@ -241,6 +250,7 @@ class Arguments(collections.namedtuple("Arguments", [
     select_worker: What to do when selecting a worker.
     build_queue_id: Which build queue index to target.
     unload_id: Which unit to target in a transport/nydus/command center.
+    raw: A raw point in game
   """
   ___slots__ = ()
 
@@ -329,6 +339,7 @@ TYPES = Arguments.types(
     select_worker=ArgumentType.enum(SELECT_WORKER_OPTIONS, SelectWorker),
     build_queue_id=ArgumentType.scalar(10),  # Depends on current build queue.
     unload_id=ArgumentType.scalar(500),  # Depends on the current loaded units.
+    raw=ArgumentType.point(),
 )
 
 # Which argument types do each function need?
@@ -349,10 +360,11 @@ FUNCTION_TYPES = {
     cmd_screen: [TYPES.queued, TYPES.screen],
     cmd_minimap: [TYPES.queued, TYPES.minimap],
     autocast: [],
+    cmd_raw: [TYPES.queued, TYPES.raw]
 }
 
 # Which ones need an ability?
-ABILITY_FUNCTIONS = {cmd_quick, cmd_screen, cmd_minimap, autocast}
+ABILITY_FUNCTIONS = {cmd_quick, cmd_screen, cmd_minimap, autocast, cmd_raw}
 
 # Which ones require a point?
 POINT_REQUIRED_FUNCS = {

@@ -1096,6 +1096,7 @@ class Features(object):
       ValueError: if the action doesn't pass validation.
     """
     func_id = func_call.function
+    # func_call is of type <pysc2.lib.actions.FunctionCall>
     try:
       func = actions.FUNCTIONS[func_id]
     except KeyError:

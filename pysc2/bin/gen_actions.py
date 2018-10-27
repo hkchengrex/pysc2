@@ -156,6 +156,21 @@ def generate_py_abilities(data):
       print_action(next(func_ids), name + "_autocast", "autocast", ab_id,
                    ability.remaps_to_ability_id)
 
+  # Do raw interface later so as not to affect origin ids
+  for ability in sorted(six.itervalues(data.abilities),
+                      key=lambda a: sort_key(data, a)):
+    ab_id = ability.ability_id
+    if ab_id in skip_abilities or (ab_id not in data.general_abilities and
+                                    ab_id not in used_abilities):
+      continue
+
+    name = generate_name(ability).replace(" ", "_")
+
+    if ability.target != sc_data.AbilityData.Target.Value("None"):
+      print_action(next(func_ids), name+ "_raw", "cmd_raw", ab_id,
+                    ability.remaps_to_ability_id)
+        
+
 
 def main(unused_argv):
   data = get_data()
