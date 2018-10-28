@@ -156,7 +156,7 @@ def generate_py_abilities(data):
       print_action(next(func_ids), name + "_autocast", "autocast", ab_id,
                    ability.remaps_to_ability_id)
 
-  func_ids = itertools.count(1000)
+  func_ids = itertools.count(549)
   # Do raw interface later so as not to affect origin ids
   for ability in sorted(six.itervalues(data.abilities),
                       key=lambda a: sort_key(data, a)):

@@ -26,6 +26,8 @@ from pysc2.lib import point
 
 from s2clientprotocol import spatial_pb2 as sc_spatial
 from s2clientprotocol import ui_pb2 as sc_ui
+from s2clientprotocol import raw_pb2 as sc_raw
+from s2clientprotocol import common_pb2 as sc_common
 
 
 class ActionSpace(enum.Enum):
@@ -41,8 +43,6 @@ def spatial(action, action_space):
     return action.action_feature_layer
   elif action_space == ActionSpace.RGB:
     return action.action_render
-  elif action_space == ActionSpace.RAW:
-    return action.action_raw
   else:
     raise ValueError("Unexpected value for action_space: %s" % action_space)
 
@@ -53,17 +53,11 @@ def no_op(action, action_space):
 
 def move_camera(action, action_space, minimap):
   """Move the camera."""
-  if action_space == ActionSpace.RAW:
-    print('Invalid action %s in raw interface' % str(action))
-    return
   minimap.assign_to(spatial(action, action_space).camera_move.center_minimap)
 
 
 def select_point(action, action_space, select_point_act, screen):
   """Select a unit at a point."""
-  if action_space == ActionSpace.RAW:
-    print('Invalid action %s in raw interface' % str(action))
-    return
   select = spatial(action, action_space).unit_selection_point
   screen.assign_to(select.selection_screen_coord)
   select.type = select_point_act
@@ -71,9 +65,6 @@ def select_point(action, action_space, select_point_act, screen):
 
 def select_rect(action, action_space, select_add, screen, screen2):
   """Select units within a rectangle."""
-  if action_space == ActionSpace.RAW:
-    print('Invalid action %s in raw interface' % str(action))
-    return
   select = spatial(action, action_space).unit_selection_rect
   out_rect = select.selection_screen_coord.add()
   screen_rect = point.Rect(screen, screen2)
@@ -151,7 +142,6 @@ def cmd_screen(action, action_space, ability_id, queued, screen):
   action_cmd.queue_command = queued
   screen.assign_to(action_cmd.target_screen_coord)
 
-
 def cmd_minimap(action, action_space, ability_id, queued, minimap):
   """Do a command that needs a point on the minimap."""
   if action_space == ActionSpace.RAW:
@@ -162,16 +152,15 @@ def cmd_minimap(action, action_space, ability_id, queued, minimap):
   action_cmd.queue_command = queued
   minimap.assign_to(action_cmd.target_minimap_coord)
 
-def cmd_raw(action, action_space, ability_id, queued, raw):
+def cmd_raw(action, action_space, ability_id, queued, raw, commanded):
   """Do a command that needs a raw point."""
-  # action_cmd = spatial(action, action_space).unit_command
-  # action_cmd.ability_id = ability_id
-  # action_cmd.queue_command = queued
-  # minimap.assign_to(action_cmd.target_minimap_coord)
-  # TODO: I don't know what to do here
-  print('Called')
-  pass
-
+  # Got <s2clientprotocol.raw_pb2.ActionRawUnitCommand> here
+  action_cmd = action.action_raw.unit_command
+  action_cmd.ability_id = ability_id
+  action_cmd.unit_tags.append(commanded)
+  action_cmd.queue_command = queued
+  action_cmd.target_world_space_pos.x = raw.x/100
+  action_cmd.target_world_space_pos.y = raw.y/100
 
 def autocast(action, action_space, ability_id):
   """Toggle autocast."""
@@ -231,7 +220,7 @@ class ArgumentType(collections.namedtuple(
 class Arguments(collections.namedtuple("Arguments", [
     "screen", "minimap", "screen2", "queued", "control_group_act",
     "control_group_id", "select_point_act", "select_add", "select_unit_act",
-    "select_unit_id", "select_worker", "build_queue_id", "unload_id", 'raw'])):
+    "select_unit_id", "select_worker", "build_queue_id", "unload_id", 'raw', 'commanded'])):
   """The full list of argument types.
 
   Take a look at TYPES and FUNCTION_TYPES for more details.
@@ -252,6 +241,7 @@ class Arguments(collections.namedtuple("Arguments", [
     build_queue_id: Which build queue index to target.
     unload_id: Which unit to target in a transport/nydus/command center.
     raw: A raw point in game
+    commanded: Tag if of unit under command
   """
   ___slots__ = ()
 
@@ -341,6 +331,7 @@ TYPES = Arguments.types(
     build_queue_id=ArgumentType.scalar(10),  # Depends on current build queue.
     unload_id=ArgumentType.scalar(500),  # Depends on the current loaded units.
     raw=ArgumentType.point(),
+    commanded=ArgumentType.scalar(-1),
 )
 
 # Which argument types do each function need?
@@ -361,7 +352,7 @@ FUNCTION_TYPES = {
     cmd_screen: [TYPES.queued, TYPES.screen],
     cmd_minimap: [TYPES.queued, TYPES.minimap],
     autocast: [],
-    cmd_raw: [TYPES.queued, TYPES.raw]
+    cmd_raw: [TYPES.queued, TYPES.raw, TYPES.commanded]
 }
 
 # Which ones need an ability?
@@ -370,7 +361,7 @@ ABILITY_FUNCTIONS = {cmd_quick, cmd_screen, cmd_minimap, autocast, cmd_raw}
 # Which ones require a point?
 POINT_REQUIRED_FUNCS = {
     False: {cmd_quick, autocast},
-    True: {cmd_screen, cmd_minimap, autocast}}
+    True: {cmd_screen, cmd_minimap, autocast, cmd_raw}}
 
 always = lambda _: True
 
@@ -446,10 +437,12 @@ class Functions(object):
                  for f in functions]
 
     self._func_list = functions
-    print(functions)
     self._func_dict = {f.name: f for f in functions}
     if len(self._func_dict) != len(self._func_list):
       raise ValueError("Function names must be unique.")
+
+    for k in self._func_dict:
+      print(k)
 
   def __getattr__(self, name):
     return self._func_dict[name]
@@ -1038,170 +1031,170 @@ _FUNCTIONS = [
     Function.ability(521, "UnloadAllAt_Overlord_minimap", cmd_minimap, 1408, 3669),
     Function.ability(522, "UnloadAllAt_WarpPrism_screen", cmd_screen, 913, 3669),
     Function.ability(523, "UnloadAllAt_WarpPrism_minimap", cmd_minimap, 913, 3669),
-    Function.ability(1000, "Attack_raw", cmd_raw, 3674),
-    Function.ability(1001, "Attack_Attack_raw", cmd_raw, 23, 3674),
-    Function.ability(1002, "Attack_AttackBuilding_raw", cmd_raw, 2048, 3674),
-    Function.ability(1003, "Attack_Redirect_raw", cmd_raw, 1682, 3674),
-    Function.ability(1004, "Scan_Move_raw", cmd_raw, 19, 3674),
-    Function.ability(1005, "Build_Armory_raw", cmd_raw, 331),
-    Function.ability(1006, "Build_Assimilator_raw", cmd_raw, 882),
-    Function.ability(1007, "Build_BanelingNest_raw", cmd_raw, 1162),
-    Function.ability(1008, "Build_Barracks_raw", cmd_raw, 321),
-    Function.ability(1009, "Build_Bunker_raw", cmd_raw, 324),
-    Function.ability(1010, "Build_CommandCenter_raw", cmd_raw, 318),
-    Function.ability(1011, "Build_CreepTumor_raw", cmd_raw, 3691),
-    Function.ability(1012, "Build_CreepTumor_Queen_raw", cmd_raw, 1694, 3691),
-    Function.ability(1013, "Build_CreepTumor_Tumor_raw", cmd_raw, 1733, 3691),
-    Function.ability(1014, "Build_CyberneticsCore_raw", cmd_raw, 894),
-    Function.ability(1015, "Build_DarkShrine_raw", cmd_raw, 891),
-    Function.ability(1016, "Build_EngineeringBay_raw", cmd_raw, 322),
-    Function.ability(1017, "Build_EvolutionChamber_raw", cmd_raw, 1156),
-    Function.ability(1018, "Build_Extractor_raw", cmd_raw, 1154),
-    Function.ability(1019, "Build_Factory_raw", cmd_raw, 328),
-    Function.ability(1020, "Build_FleetBeacon_raw", cmd_raw, 885),
-    Function.ability(1021, "Build_Forge_raw", cmd_raw, 884),
-    Function.ability(1022, "Build_FusionCore_raw", cmd_raw, 333),
-    Function.ability(1023, "Build_Gateway_raw", cmd_raw, 883),
-    Function.ability(1024, "Build_GhostAcademy_raw", cmd_raw, 327),
-    Function.ability(1025, "Build_Hatchery_raw", cmd_raw, 1152),
-    Function.ability(1026, "Build_HydraliskDen_raw", cmd_raw, 1157),
-    Function.ability(1027, "Build_InfestationPit_raw", cmd_raw, 1160),
-    Function.ability(1028, "Build_LurkerDen_raw", cmd_raw, 1163),
-    Function.ability(1029, "Build_MissileTurret_raw", cmd_raw, 323),
-    Function.ability(1030, "Build_Nexus_raw", cmd_raw, 880),
-    Function.ability(1031, "Build_NydusNetwork_raw", cmd_raw, 1161),
-    Function.ability(1032, "Build_NydusWorm_raw", cmd_raw, 1768),
-    Function.ability(1033, "Build_PhotonCannon_raw", cmd_raw, 887),
-    Function.ability(1034, "Build_Pylon_raw", cmd_raw, 881),
-    Function.ability(1035, "Build_Reactor_raw", cmd_raw, 3683),
-    Function.ability(1036, "Build_Reactor_Barracks_raw", cmd_raw, 422, 3683),
-    Function.ability(1037, "Build_Reactor_Factory_raw", cmd_raw, 455, 3683),
-    Function.ability(1038, "Build_Reactor_Starport_raw", cmd_raw, 488, 3683),
-    Function.ability(1039, "Build_Refinery_raw", cmd_raw, 320),
-    Function.ability(1040, "Build_RoachWarren_raw", cmd_raw, 1165),
-    Function.ability(1041, "Build_RoboticsBay_raw", cmd_raw, 892),
-    Function.ability(1042, "Build_RoboticsFacility_raw", cmd_raw, 893),
-    Function.ability(1043, "Build_SensorTower_raw", cmd_raw, 326),
-    Function.ability(1044, "Build_ShieldBattery_raw", cmd_raw, 895),
-    Function.ability(1045, "Build_SpawningPool_raw", cmd_raw, 1155),
-    Function.ability(1046, "Build_SpineCrawler_raw", cmd_raw, 1166),
-    Function.ability(1047, "Build_Spire_raw", cmd_raw, 1158),
-    Function.ability(1048, "Build_SporeCrawler_raw", cmd_raw, 1167),
-    Function.ability(1049, "Build_Stargate_raw", cmd_raw, 889),
-    Function.ability(1050, "Build_Starport_raw", cmd_raw, 329),
-    Function.ability(1051, "Build_StasisTrap_raw", cmd_raw, 2505),
-    Function.ability(1052, "Build_SupplyDepot_raw", cmd_raw, 319),
-    Function.ability(1053, "Build_TechLab_raw", cmd_raw, 3682),
-    Function.ability(1054, "Build_TechLab_Barracks_raw", cmd_raw, 421, 3682),
-    Function.ability(1055, "Build_TechLab_Factory_raw", cmd_raw, 454, 3682),
-    Function.ability(1056, "Build_TechLab_Starport_raw", cmd_raw, 487, 3682),
-    Function.ability(1057, "Build_TemplarArchive_raw", cmd_raw, 890),
-    Function.ability(1058, "Build_TwilightCouncil_raw", cmd_raw, 886),
-    Function.ability(1059, "Build_UltraliskCavern_raw", cmd_raw, 1159),
-    Function.ability(1060, "Effect_Abduct_raw", cmd_raw, 2067),
-    Function.ability(1061, "Effect_AdeptPhaseShift_raw", cmd_raw, 2544),
-    Function.ability(1062, "Effect_AntiArmorMissile_raw", cmd_raw, 3753),
-    Function.ability(1063, "Effect_AutoTurret_raw", cmd_raw, 1764),
-    Function.ability(1064, "Effect_BlindingCloud_raw", cmd_raw, 2063),
-    Function.ability(1065, "Effect_Blink_raw", cmd_raw, 3687),
-    Function.ability(1066, "Effect_Blink_Stalker_raw", cmd_raw, 1442, 3687),
-    Function.ability(1067, "Effect_ShadowStride_raw", cmd_raw, 2700, 3687),
-    Function.ability(1068, "Effect_CalldownMULE_raw", cmd_raw, 171),
-    Function.ability(1069, "Effect_CausticSpray_raw", cmd_raw, 2324),
-    Function.ability(1070, "Effect_Charge_raw", cmd_raw, 1819),
-    Function.ability(1071, "Effect_ChronoBoost_raw", cmd_raw, 261),
-    Function.ability(1072, "Effect_ChronoBoostEnergyCost_raw", cmd_raw, 3755),
-    Function.ability(1073, "Effect_Contaminate_raw", cmd_raw, 1825),
-    Function.ability(1074, "Effect_CorrosiveBile_raw", cmd_raw, 2338),
-    Function.ability(1075, "Effect_EMP_raw", cmd_raw, 1628),
-    Function.ability(1076, "Effect_Feedback_raw", cmd_raw, 140),
-    Function.ability(1077, "Effect_ForceField_raw", cmd_raw, 1526),
-    Function.ability(1078, "Effect_FungalGrowth_raw", cmd_raw, 74),
-    Function.ability(1079, "Effect_GhostSnipe_raw", cmd_raw, 2714),
-    Function.ability(1080, "Effect_GravitonBeam_raw", cmd_raw, 173),
-    Function.ability(1081, "Effect_Heal_raw", cmd_raw, 386),
-    Function.ability(1082, "Effect_HunterSeekerMissile_raw", cmd_raw, 169),
-    Function.ability(1083, "Effect_InfestedTerrans_raw", cmd_raw, 247),
-    Function.ability(1084, "Effect_InjectLarva_raw", cmd_raw, 251),
-    Function.ability(1085, "Effect_InterferenceMatrix_raw", cmd_raw, 3747),
-    Function.ability(1086, "Effect_KD8Charge_raw", cmd_raw, 2588),
-    Function.ability(1087, "Effect_LockOn_raw", cmd_raw, 2350),
-    Function.ability(1088, "Effect_LocustSwoop_raw", cmd_raw, 2387),
-    # Function.ability(1089, "Effect_MassRecall_raw", cmd_raw, 142), # WHY??? -- Fail without this!!
-    Function.ability(1090, "Effect_MassRecall_raw", cmd_raw, 3686),
-    Function.ability(1091, "Effect_MassRecall_Mothership_raw", cmd_raw, 2368, 3686),
-    Function.ability(1092, "Effect_MassRecall_MothershipCore_raw", cmd_raw, 1974, 3686),
-    Function.ability(1093, "Effect_MassRecall_Nexus_raw", cmd_raw, 3757, 3686),
-    Function.ability(1094, "Effect_NeuralParasite_raw", cmd_raw, 249),
-    Function.ability(1095, "Effect_NukeCalldown_raw", cmd_raw, 1622),
-    Function.ability(1096, "Effect_OracleRevelation_raw", cmd_raw, 2146),
-    Function.ability(1097, "Effect_ParasiticBomb_raw", cmd_raw, 2542),
-    Function.ability(1098, "Effect_PhotonOvercharge_raw", cmd_raw, 2162),
-    Function.ability(1099, "Effect_PointDefenseDrone_raw", cmd_raw, 144),
-    Function.ability(1100, "Effect_PsiStorm_raw", cmd_raw, 1036),
-    Function.ability(1101, "Effect_PurificationNova_raw", cmd_raw, 2346),
-    Function.ability(1102, "Effect_Repair_raw", cmd_raw, 3685),
-    Function.ability(1103, "Effect_Repair_Mule_raw", cmd_raw, 78, 3685),
-    Function.ability(1104, "Effect_Repair_RepairDrone_raw", cmd_raw, 3751, 3685),
-    Function.ability(1105, "Effect_Repair_SCV_raw", cmd_raw, 316, 3685),
-    Function.ability(1106, "Effect_RepairDrone_raw", cmd_raw, 3749),
-    Function.ability(1107, "Effect_Restore_raw", cmd_raw, 3765),
-    Function.ability(1108, "Effect_Scan_raw", cmd_raw, 399),
-    Function.ability(1109, "Effect_SpawnLocusts_raw", cmd_raw, 2704),
-    Function.ability(1110, "Effect_Spray_raw", cmd_raw, 3684),
-    Function.ability(1111, "Effect_Spray_Protoss_raw", cmd_raw, 30, 3684),
-    Function.ability(1112, "Effect_Spray_Terran_raw", cmd_raw, 26, 3684),
-    Function.ability(1113, "Effect_Spray_Zerg_raw", cmd_raw, 28, 3684),
-    Function.ability(1114, "Effect_SupplyDrop_raw", cmd_raw, 255),
-    Function.ability(1115, "Effect_TacticalJump_raw", cmd_raw, 2358),
-    Function.ability(1116, "Effect_TimeWarp_raw", cmd_raw, 2244),
-    Function.ability(1117, "Effect_Transfusion_raw", cmd_raw, 1664),
-    Function.ability(1118, "Effect_ViperConsume_raw", cmd_raw, 2073),
-    Function.ability(1119, "Effect_WidowMineAttack_raw", cmd_raw, 2099),
-    Function.ability(1120, "Effect_YamatoGun_raw", cmd_raw, 401),
-    Function.ability(1121, "Harvest_Gather_raw", cmd_raw, 3666),
-    Function.ability(1122, "Harvest_Gather_Drone_raw", cmd_raw, 1183, 3666),
-    Function.ability(1123, "Harvest_Gather_Mule_raw", cmd_raw, 166, 3666),
-    Function.ability(1124, "Harvest_Gather_Probe_raw", cmd_raw, 298, 3666),
-    Function.ability(1125, "Harvest_Gather_SCV_raw", cmd_raw, 295, 3666),
-    Function.ability(1126, "Land_raw", cmd_raw, 3678),
-    Function.ability(1127, "Land_Barracks_raw", cmd_raw, 554, 3678),
-    Function.ability(1128, "Land_CommandCenter_raw", cmd_raw, 419, 3678),
-    Function.ability(1129, "Land_Factory_raw", cmd_raw, 520, 3678),
-    Function.ability(1130, "Land_OrbitalCommand_raw", cmd_raw, 1524, 3678),
-    Function.ability(1131, "Land_Starport_raw", cmd_raw, 522, 3678),
-    Function.ability(1132, "Load_raw", cmd_raw, 3668),
-    Function.ability(1133, "Load_Bunker_raw", cmd_raw, 407, 3668),
-    Function.ability(1134, "Load_Medivac_raw", cmd_raw, 394, 3668),
-    Function.ability(1135, "Load_NydusNetwork_raw", cmd_raw, 1437, 3668),
-    Function.ability(1136, "Load_NydusWorm_raw", cmd_raw, 2370, 3668),
-    Function.ability(1137, "Load_Overlord_raw", cmd_raw, 1406, 3668),
-    Function.ability(1138, "Load_WarpPrism_raw", cmd_raw, 911, 3668),
-    Function.ability(1139, "Morph_LiberatorAGMode_raw", cmd_raw, 2558),
-    Function.ability(1140, "Morph_Root_raw", cmd_raw, 3680),
-    Function.ability(1141, "Morph_SpineCrawlerRoot_raw", cmd_raw, 1729, 3680),
-    Function.ability(1142, "Morph_SporeCrawlerRoot_raw", cmd_raw, 1731, 3680),
-    Function.ability(1143, "Move_raw", cmd_raw, 16),
-    Function.ability(1144, "Patrol_raw", cmd_raw, 17),
-    Function.ability(1145, "Rally_Units_raw", cmd_raw, 3673),
-    Function.ability(1146, "Rally_Building_raw", cmd_raw, 195, 3673),
-    Function.ability(1147, "Rally_Hatchery_Units_raw", cmd_raw, 212, 3673),
-    Function.ability(1148, "Rally_Morphing_Unit_raw", cmd_raw, 199, 3673),
-    Function.ability(1149, "Rally_Workers_raw", cmd_raw, 3690),
-    Function.ability(1150, "Rally_CommandCenter_raw", cmd_raw, 203, 3690),
-    Function.ability(1151, "Rally_Hatchery_Workers_raw", cmd_raw, 211, 3690),
-    Function.ability(1152, "Rally_Nexus_raw", cmd_raw, 207, 3690),
-    Function.ability(1153, "Smart_raw", cmd_raw, 1),
-    Function.ability(1154, "TrainWarp_Adept_raw", cmd_raw, 1419),
-    Function.ability(1155, "TrainWarp_DarkTemplar_raw", cmd_raw, 1417),
-    Function.ability(1156, "TrainWarp_HighTemplar_raw", cmd_raw, 1416),
-    Function.ability(1157, "TrainWarp_Sentry_raw", cmd_raw, 1418),
-    Function.ability(1158, "TrainWarp_Stalker_raw", cmd_raw, 1414),
-    Function.ability(1159, "TrainWarp_Zealot_raw", cmd_raw, 1413),
-    Function.ability(1160, "UnloadAllAt_raw", cmd_raw, 3669),
-    Function.ability(1161, "UnloadAllAt_Medivac_raw", cmd_raw, 396, 3669),
-    Function.ability(1162, "UnloadAllAt_Overlord_raw", cmd_raw, 1408, 3669),
-    Function.ability(1163, "UnloadAllAt_WarpPrism_raw", cmd_raw, 913, 3669),
+    Function.ability(549, "Attack_raw", cmd_raw, 3674),
+    Function.ability(550, "Attack_Attack_raw", cmd_raw, 23, 3674),
+    Function.ability(551, "Attack_AttackBuilding_raw", cmd_raw, 2048, 3674),
+    Function.ability(552, "Attack_Redirect_raw", cmd_raw, 1682, 3674),
+    Function.ability(553, "Scan_Move_raw", cmd_raw, 19, 3674),
+    Function.ability(554, "Build_Armory_raw", cmd_raw, 331),
+    Function.ability(555, "Build_Assimilator_raw", cmd_raw, 882),
+    Function.ability(556, "Build_BanelingNest_raw", cmd_raw, 1162),
+    Function.ability(557, "Build_Barracks_raw", cmd_raw, 321),
+    Function.ability(558, "Build_Bunker_raw", cmd_raw, 324),
+    Function.ability(559, "Build_CommandCenter_raw", cmd_raw, 318),
+    Function.ability(560, "Build_CreepTumor_raw", cmd_raw, 3691),
+    Function.ability(561, "Build_CreepTumor_Queen_raw", cmd_raw, 1694, 3691),
+    Function.ability(562, "Build_CreepTumor_Tumor_raw", cmd_raw, 1733, 3691),
+    Function.ability(563, "Build_CyberneticsCore_raw", cmd_raw, 894),
+    Function.ability(564, "Build_DarkShrine_raw", cmd_raw, 891),
+    Function.ability(565, "Build_EngineeringBay_raw", cmd_raw, 322),
+    Function.ability(566, "Build_EvolutionChamber_raw", cmd_raw, 1156),
+    Function.ability(567, "Build_Extractor_raw", cmd_raw, 1154),
+    Function.ability(568, "Build_Factory_raw", cmd_raw, 328),
+    Function.ability(569, "Build_FleetBeacon_raw", cmd_raw, 885),
+    Function.ability(570, "Build_Forge_raw", cmd_raw, 884),
+    Function.ability(571, "Build_FusionCore_raw", cmd_raw, 333),
+    Function.ability(572, "Build_Gateway_raw", cmd_raw, 883),
+    Function.ability(573, "Build_GhostAcademy_raw", cmd_raw, 327),
+    Function.ability(574, "Build_Hatchery_raw", cmd_raw, 1152),
+    Function.ability(575, "Build_HydraliskDen_raw", cmd_raw, 1157),
+    Function.ability(576, "Build_InfestationPit_raw", cmd_raw, 1160),
+    Function.ability(577, "Build_LurkerDen_raw", cmd_raw, 1163),
+    Function.ability(578, "Build_MissileTurret_raw", cmd_raw, 323),
+    Function.ability(579, "Build_Nexus_raw", cmd_raw, 880),
+    Function.ability(580, "Build_NydusNetwork_raw", cmd_raw, 1161),
+    Function.ability(581, "Build_NydusWorm_raw", cmd_raw, 1768),
+    Function.ability(582, "Build_PhotonCannon_raw", cmd_raw, 887),
+    Function.ability(583, "Build_Pylon_raw", cmd_raw, 881),
+    Function.ability(584, "Build_Reactor_raw", cmd_raw, 3683),
+    Function.ability(585, "Build_Reactor_Barracks_raw", cmd_raw, 422, 3683),
+    Function.ability(586, "Build_Reactor_Factory_raw", cmd_raw, 455, 3683),
+    Function.ability(587, "Build_Reactor_Starport_raw", cmd_raw, 488, 3683),
+    Function.ability(588, "Build_Refinery_raw", cmd_raw, 320),
+    Function.ability(589, "Build_RoachWarren_raw", cmd_raw, 1165),
+    Function.ability(590, "Build_RoboticsBay_raw", cmd_raw, 892),
+    Function.ability(591, "Build_RoboticsFacility_raw", cmd_raw, 893),
+    Function.ability(592, "Build_SensorTower_raw", cmd_raw, 326),
+    Function.ability(593, "Build_ShieldBattery_raw", cmd_raw, 895),
+    Function.ability(594, "Build_SpawningPool_raw", cmd_raw, 1155),
+    Function.ability(595, "Build_SpineCrawler_raw", cmd_raw, 1166),
+    Function.ability(596, "Build_Spire_raw", cmd_raw, 1158),
+    Function.ability(597, "Build_SporeCrawler_raw", cmd_raw, 1167),
+    Function.ability(598, "Build_Stargate_raw", cmd_raw, 889),
+    Function.ability(599, "Build_Starport_raw", cmd_raw, 329),
+    Function.ability(600, "Build_StasisTrap_raw", cmd_raw, 2505),
+    Function.ability(601, "Build_SupplyDepot_raw", cmd_raw, 319),
+    Function.ability(602, "Build_TechLab_raw", cmd_raw, 3682),
+    Function.ability(603, "Build_TechLab_Barracks_raw", cmd_raw, 421, 3682),
+    Function.ability(604, "Build_TechLab_Factory_raw", cmd_raw, 454, 3682),
+    Function.ability(605, "Build_TechLab_Starport_raw", cmd_raw, 487, 3682),
+    Function.ability(606, "Build_TemplarArchive_raw", cmd_raw, 890),
+    Function.ability(607, "Build_TwilightCouncil_raw", cmd_raw, 886),
+    Function.ability(608, "Build_UltraliskCavern_raw", cmd_raw, 1159),
+    Function.ability(609, "Effect_Abduct_raw", cmd_raw, 2067),
+    Function.ability(610, "Effect_AdeptPhaseShift_raw", cmd_raw, 2544),
+    Function.ability(611, "Effect_AntiArmorMissile_raw", cmd_raw, 3753),
+    Function.ability(612, "Effect_AutoTurret_raw", cmd_raw, 1764),
+    Function.ability(613, "Effect_BlindingCloud_raw", cmd_raw, 2063),
+    Function.ability(614, "Effect_Blink_raw", cmd_raw, 3687),
+    Function.ability(615, "Effect_Blink_Stalker_raw", cmd_raw, 1442, 3687),
+    Function.ability(616, "Effect_ShadowStride_raw", cmd_raw, 2700, 3687),
+    Function.ability(617, "Effect_CalldownMULE_raw", cmd_raw, 171),
+    Function.ability(618, "Effect_CausticSpray_raw", cmd_raw, 2324),
+    Function.ability(619, "Effect_Charge_raw", cmd_raw, 1819),
+    Function.ability(620, "Effect_ChronoBoost_raw", cmd_raw, 261),
+    Function.ability(621, "Effect_ChronoBoostEnergyCost_raw", cmd_raw, 3755),
+    Function.ability(622, "Effect_Contaminate_raw", cmd_raw, 1825),
+    Function.ability(623, "Effect_CorrosiveBile_raw", cmd_raw, 2338),
+    Function.ability(624, "Effect_EMP_raw", cmd_raw, 1628),
+    Function.ability(625, "Effect_Feedback_raw", cmd_raw, 140),
+    Function.ability(626, "Effect_ForceField_raw", cmd_raw, 1526),
+    Function.ability(627, "Effect_FungalGrowth_raw", cmd_raw, 74),
+    Function.ability(628, "Effect_GhostSnipe_raw", cmd_raw, 2714),
+    Function.ability(629, "Effect_GravitonBeam_raw", cmd_raw, 173),
+    Function.ability(630, "Effect_Heal_raw", cmd_raw, 386),
+    Function.ability(631, "Effect_HunterSeekerMissile_raw", cmd_raw, 169),
+    Function.ability(632, "Effect_InfestedTerrans_raw", cmd_raw, 247),
+    Function.ability(633, "Effect_InjectLarva_raw", cmd_raw, 251),
+    Function.ability(634, "Effect_InterferenceMatrix_raw", cmd_raw, 3747),
+    Function.ability(635, "Effect_KD8Charge_raw", cmd_raw, 2588),
+    Function.ability(636, "Effect_LockOn_raw", cmd_raw, 2350),
+    Function.ability(637, "Effect_LocustSwoop_raw", cmd_raw, 2387),
+    Function.ability(638, "Effect_MassRecall_raw", cmd_raw, 142),
+    Function.ability(639, "Effect_MassRecall_raw_2", cmd_raw, 3686), # Note: I changed this manually
+    Function.ability(640, "Effect_MassRecall_Mothership_raw", cmd_raw, 2368, 3686),
+    Function.ability(641, "Effect_MassRecall_MothershipCore_raw", cmd_raw, 1974, 3686),
+    Function.ability(642, "Effect_MassRecall_Nexus_raw", cmd_raw, 3757, 3686),
+    Function.ability(643, "Effect_NeuralParasite_raw", cmd_raw, 249),
+    Function.ability(644, "Effect_NukeCalldown_raw", cmd_raw, 1622),
+    Function.ability(645, "Effect_OracleRevelation_raw", cmd_raw, 2146),
+    Function.ability(646, "Effect_ParasiticBomb_raw", cmd_raw, 2542),
+    Function.ability(647, "Effect_PhotonOvercharge_raw", cmd_raw, 2162),
+    Function.ability(648, "Effect_PointDefenseDrone_raw", cmd_raw, 144),
+    Function.ability(649, "Effect_PsiStorm_raw", cmd_raw, 1036),
+    Function.ability(650, "Effect_PurificationNova_raw", cmd_raw, 2346),
+    Function.ability(651, "Effect_Repair_raw", cmd_raw, 3685),
+    Function.ability(652, "Effect_Repair_Mule_raw", cmd_raw, 78, 3685),
+    Function.ability(653, "Effect_Repair_RepairDrone_raw", cmd_raw, 3751, 3685),
+    Function.ability(654, "Effect_Repair_SCV_raw", cmd_raw, 316, 3685),
+    Function.ability(655, "Effect_RepairDrone_raw", cmd_raw, 3749),
+    Function.ability(656, "Effect_Restore_raw", cmd_raw, 3765),
+    Function.ability(657, "Effect_Scan_raw", cmd_raw, 399),
+    Function.ability(658, "Effect_SpawnLocusts_raw", cmd_raw, 2704),
+    Function.ability(659, "Effect_Spray_raw", cmd_raw, 3684),
+    Function.ability(660, "Effect_Spray_Protoss_raw", cmd_raw, 30, 3684),
+    Function.ability(661, "Effect_Spray_Terran_raw", cmd_raw, 26, 3684),
+    Function.ability(662, "Effect_Spray_Zerg_raw", cmd_raw, 28, 3684),
+    Function.ability(663, "Effect_SupplyDrop_raw", cmd_raw, 255),
+    Function.ability(664, "Effect_TacticalJump_raw", cmd_raw, 2358),
+    Function.ability(665, "Effect_TimeWarp_raw", cmd_raw, 2244),
+    Function.ability(666, "Effect_Transfusion_raw", cmd_raw, 1664),
+    Function.ability(667, "Effect_ViperConsume_raw", cmd_raw, 2073),
+    Function.ability(668, "Effect_WidowMineAttack_raw", cmd_raw, 2099),
+    Function.ability(669, "Effect_YamatoGun_raw", cmd_raw, 401),
+    Function.ability(670, "Harvest_Gather_raw", cmd_raw, 3666),
+    Function.ability(671, "Harvest_Gather_Drone_raw", cmd_raw, 1183, 3666),
+    Function.ability(672, "Harvest_Gather_Mule_raw", cmd_raw, 166, 3666),
+    Function.ability(673, "Harvest_Gather_Probe_raw", cmd_raw, 298, 3666),
+    Function.ability(674, "Harvest_Gather_SCV_raw", cmd_raw, 295, 3666),
+    Function.ability(675, "Land_raw", cmd_raw, 3678),
+    Function.ability(676, "Land_Barracks_raw", cmd_raw, 554, 3678),
+    Function.ability(677, "Land_CommandCenter_raw", cmd_raw, 419, 3678),
+    Function.ability(678, "Land_Factory_raw", cmd_raw, 520, 3678),
+    Function.ability(679, "Land_OrbitalCommand_raw", cmd_raw, 1524, 3678),
+    Function.ability(680, "Land_Starport_raw", cmd_raw, 522, 3678),
+    Function.ability(681, "Load_raw", cmd_raw, 3668),
+    Function.ability(682, "Load_Bunker_raw", cmd_raw, 407, 3668),
+    Function.ability(683, "Load_Medivac_raw", cmd_raw, 394, 3668),
+    Function.ability(684, "Load_NydusNetwork_raw", cmd_raw, 1437, 3668),
+    Function.ability(685, "Load_NydusWorm_raw", cmd_raw, 2370, 3668),
+    Function.ability(686, "Load_Overlord_raw", cmd_raw, 1406, 3668),
+    Function.ability(687, "Load_WarpPrism_raw", cmd_raw, 911, 3668),
+    Function.ability(688, "Morph_LiberatorAGMode_raw", cmd_raw, 2558),
+    Function.ability(689, "Morph_Root_raw", cmd_raw, 3680),
+    Function.ability(690, "Morph_SpineCrawlerRoot_raw", cmd_raw, 1729, 3680),
+    Function.ability(691, "Morph_SporeCrawlerRoot_raw", cmd_raw, 1731, 3680),
+    Function.ability(692, "Move_raw", cmd_raw, 16),
+    Function.ability(693, "Patrol_raw", cmd_raw, 17),
+    Function.ability(694, "Rally_Units_raw", cmd_raw, 3673),
+    Function.ability(695, "Rally_Building_raw", cmd_raw, 195, 3673),
+    Function.ability(696, "Rally_Hatchery_Units_raw", cmd_raw, 212, 3673),
+    Function.ability(697, "Rally_Morphing_Unit_raw", cmd_raw, 199, 3673),
+    Function.ability(698, "Rally_Workers_raw", cmd_raw, 3690),
+    Function.ability(699, "Rally_CommandCenter_raw", cmd_raw, 203, 3690),
+    Function.ability(700, "Rally_Hatchery_Workers_raw", cmd_raw, 211, 3690),
+    Function.ability(701, "Rally_Nexus_raw", cmd_raw, 207, 3690),
+    Function.ability(702, "Smart_raw", cmd_raw, 1),
+    Function.ability(703, "TrainWarp_Adept_raw", cmd_raw, 1419),
+    Function.ability(704, "TrainWarp_DarkTemplar_raw", cmd_raw, 1417),
+    Function.ability(705, "TrainWarp_HighTemplar_raw", cmd_raw, 1416),
+    Function.ability(706, "TrainWarp_Sentry_raw", cmd_raw, 1418),
+    Function.ability(707, "TrainWarp_Stalker_raw", cmd_raw, 1414),
+    Function.ability(708, "TrainWarp_Zealot_raw", cmd_raw, 1413),
+    Function.ability(709, "UnloadAllAt_raw", cmd_raw, 3669),
+    Function.ability(710, "UnloadAllAt_Medivac_raw", cmd_raw, 396, 3669),
+    Function.ability(711, "UnloadAllAt_Overlord_raw", cmd_raw, 1408, 3669),
+    Function.ability(712, "UnloadAllAt_WarpPrism_raw", cmd_raw, 913, 3669),
 ]
 
 # pylint: enable=line-too-long
@@ -1250,8 +1243,6 @@ class FunctionCall(collections.namedtuple(
       KeyError: if the enum name doesn't exist.
       ValueError: if the enum id doesn't exist.
     """
-    # print(function)
-    # print(arguments)
     func = FUNCTIONS[function]
     args = []
     for arg, arg_type in zip(arguments, func.args):

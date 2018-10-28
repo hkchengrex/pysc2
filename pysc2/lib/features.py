@@ -413,7 +413,8 @@ class AgentInterfaceFormat(object):
       use_raw_units=False,
       use_unit_counts=False,
       use_camera_position=False,
-      hide_specific_actions=True):
+      hide_specific_actions=True,
+      raw_dimensions=(9999, 9999)): # This is temp... but as good as it sounds ah? TODO: Any fix?
     """Initializer.
 
     Args:
@@ -492,6 +493,8 @@ class AgentInterfaceFormat(object):
     else:
       self._action_dimensions = rgb_dimensions
 
+    self._raw_dimensions = raw_dimensions
+
   @property
   def feature_dimensions(self):
     return self._feature_dimensions
@@ -499,6 +502,10 @@ class AgentInterfaceFormat(object):
   @property
   def rgb_dimensions(self):
     return self._rgb_dimensions
+
+  @property
+  def raw_dimensions(self):
+    return self._raw_dimensions
 
   @property
   def action_space(self):
@@ -676,6 +683,7 @@ def _init_valid_functions(action_dimensions):
       "screen": tuple(int(i) for i in action_dimensions.screen),
       "screen2": tuple(int(i) for i in action_dimensions.screen),
       "minimap": tuple(int(i) for i in action_dimensions.minimap),
+      # "raw": tuple(int(i) for i in raw_dimensions.raw),
   }
 
   types = actions.Arguments(*[
@@ -992,8 +1000,8 @@ class Features(object):
           int(u.energy / u.energy_max * 255) if u.energy_max > 0 else 0,
           u.display_type,  # Visible = 1, Snapshot = 2, Hidden = 3
           u.owner,  # 1-15, 16 = neutral
-          screen_pos.x,
-          screen_pos.y,
+          u.pos.x*100 if is_raw else screen_pos.x,
+          u.pos.y*100 if is_raw else screen_pos.y,
           u.facing,
           screen_radius,
           u.cloak,  # Cloaked = 1, CloakedDetected = 2, NotCloaked = 3
@@ -1010,7 +1018,7 @@ class Features(object):
           u.weapon_cooldown,
           len(u.orders),
           u.tag if is_raw else 0
-      ), dtype=np.int32)
+      ), dtype=np.int64)
 
     raw = obs.observation.raw_data
 
@@ -1031,7 +1039,7 @@ class Features(object):
         raw_units = [full_unit_vec(u, self._world_to_world_tl, is_raw=True)
                      for u in raw.units]
         out["raw_units"] = named_array.NamedNumpyArray(
-            raw_units, [None, FeatureUnit], dtype=np.int32)
+            raw_units, [None, FeatureUnit], dtype=np.int64)
 
     if aif.use_unit_counts:
       with sw("unit_counts"):
@@ -1079,7 +1087,7 @@ class Features(object):
     return list(available_actions)
 
   @sw.decorate
-  def transform_action(self, obs, func_call, skip_available=False, is_raw=False):
+  def transform_action(self, obs, func_call, skip_available=False):
     """Tranform an agent-style action to one that SC2 can consume.
 
     Args:
@@ -1114,12 +1122,16 @@ class Features(object):
               func, func_call.arguments))
 
     # Args are valid?
+    is_raw = False
     aif = self._agent_interface_format
     for t, arg in zip(func.args, func_call.arguments):
       if t.name in ("screen", "screen2"):
         sizes = aif.action_dimensions.screen
       elif t.name == "minimap":
         sizes = aif.action_dimensions.minimap
+      elif t.name == "raw":
+        sizes = aif.raw_dimensions
+        is_raw = True
       else:
         sizes = t.sizes
 
@@ -1129,7 +1141,7 @@ class Features(object):
                 func, func_call.arguments))
 
       for s, a in zip(sizes, arg):
-        if not 0 <= a < s:
+        if not 0 <= a < s and s >= 0:
           raise ValueError("Argument is out of range for %s, got: %s" % (
               func, func_call.arguments))
 
@@ -1149,6 +1161,7 @@ class Features(object):
     if func.ability_id:
       kwargs["ability_id"] = func.ability_id
     actions.FUNCTIONS[func_id].function_type(**kwargs)
+    
     return sc2_action
 
   @sw.decorate

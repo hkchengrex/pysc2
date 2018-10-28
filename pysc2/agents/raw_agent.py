@@ -23,16 +23,13 @@ from pysc2.agents import base_agent
 from pysc2.lib import actions
 from pysc2.lib import features
 
+from pysc2.lib import raw_units as ru
+
 _PLAYER_SELF = features.PlayerRelative.SELF
 _PLAYER_NEUTRAL = features.PlayerRelative.NEUTRAL  # beacon/minerals
 _PLAYER_ENEMY = features.PlayerRelative.ENEMY
 
 FUNCTIONS = actions.FUNCTIONS
-
-def _xy_locs(mask):
-  """Mask should be a set of bools from comparison with a feature layer."""
-  y, x = mask.nonzero()
-  return list(zip(x, y))
 
 class MoveToBeacon(base_agent.BaseAgent):
   """An agent specifically for solving the MoveToBeacon map."""
@@ -40,14 +37,21 @@ class MoveToBeacon(base_agent.BaseAgent):
   def step(self, obs):
     super(MoveToBeacon, self).step(obs)
 
-    return FUNCTIONS.Move_raw("now", (0, 0))
+    raw_units = obs.observation.raw_units
+    for u in raw_units:
+      if ru.get_unit_owner(u) == 16:
+        target = ru.get_unit_pos(u)
+      else:
+        marine = int(ru.get_unit_tag(u))
+        m_pos = ru.get_unit_pos(u)
+
+    # print(target, m_pos)
+    # print(marine)
 
     if FUNCTIONS.Move_raw.id in obs.observation.available_actions:
-      player_relative = obs.observation.feature_screen.player_relative
-      beacon = _xy_locs(player_relative == _PLAYER_NEUTRAL)
-      if not beacon:
-        return FUNCTIONS.no_op()
-      beacon_center = numpy.mean(beacon, axis=0).round()
-      return FUNCTIONS.Move_raw("now", beacon_center)
+      return FUNCTIONS.Move_raw("now", target, marine)
+      # return FUNCTIONS.no_op()
     else:
       return FUNCTIONS.select_army("select")
+
+    return FUNCTIONS.no_op()
