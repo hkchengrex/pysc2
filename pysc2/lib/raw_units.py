@@ -1,17 +1,53 @@
-def get_unit_type(np_array):
-    return np_array[0]
+import math
 
-# Self = 1, Ally = 2, Neutral = 3, Enemy = 4
-def get_unit_alliance(np_array):
-    return np_array[1]
+PLAYER_NEUTRAL = 16
 
-# 1-15, 16 = neutral
-def get_unit_owner(np_array):
-    return np_array[11]
+# See the numpy array definition on line 987 in features.py
+class RawUnit():
+    def __init__(self, np_array):
+        self.unit_type, \
+        self.alliance, \
+        self.health, \
+        self.shield, \
+        self.energy, \
+        self.cargo_space_taken, \
+        self.build_progress, \
+        self.health_percent, \
+        self.shield_percent, \
+        self.energy_percent, \
+        self.display_type, \
+        self.owner, \
+        self.posx, \
+        self.posy, \
+        self.facing, \
+        self.screen_radius, \
+        self.cloak, \
+        self.is_selected, \
+        self.blip, \
+        self.is_powered, \
+        self.mineral_contents, \
+        self.vespene_contents, \
+        self.cargo_space_max, \
+        self.assigned_harvesters, \
+        self.ideal_harvesters, \
+        self.weapon_cooldown, \
+        self.order_len, \
+        self.tag = np_array.tolist()
 
-# Returns (x, y)
-def get_unit_pos(np_array):
-    return np_array[12], np_array[13]
+    @property
+    def pos(self):
+        return self.posx, self.posy
 
-def get_unit_tag(np_array):
-    return np_array[27]
+    def dist_to(self, other):
+        return math.sqrt((self.posx-other.posx)**2 + (self.posy-other.posy)**2)
+
+    def __repr__(self):
+        return 'Unit type %d; tag %d' % (self.unit_type, self.tag)
+
+    def __str__(self):
+        return 'Unit type %d; tag %d' % (self.unit_type, self.tag)
+
+    def __eq__(self, other): 
+        if type(other) == int:
+            return self.tag == other
+        return self.tag == other.tag

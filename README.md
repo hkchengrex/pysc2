@@ -19,7 +19,7 @@
   </a>
 </div>
 
-# PySC2 - StarCraft II Learning Environment
+# PySC2 - StarCraft II Learning Environment [Modded with the raw interface]
 
 [PySC2](https://github.com/deepmind/pysc2) is [DeepMind](http://deepmind.com)'s
 Python component of the StarCraft II Learning Environment (SC2LE). It exposes
@@ -45,6 +45,28 @@ please cite the [StarCraft II Paper](https://arxiv.org/abs/1708.04782)
 
 You can reach us at [pysc2@deepmind.com](mailto:pysc2@deepmind.com).
 
+-------------------------------------------------------------------------------
+
+This is a fork made by some folks in HKUST. There are three interfaces to interact with StarCraft II:
+1. Rendered - What human sees
+2. Feature - Low-res, higher dimensional 2d maps
+3. *Raw - Not exposed by the original pysc2, added in this fork*
+
+## Test the raw interface
+
+We have written two simple scripted agents for MoveToBeacon and CollectMineralShards.
+You can run them by:
+
+`python -m pysc2.bin.agent --map MoveToBeacon --agent pysc2.agents.raw_agent.MoveToBeacon`
+
+and
+
+`python -m pysc2.bin.agent --map CollectMineralShards --agent pysc2.agents.raw_agent.CollectMineralShards`
+
+## What we have changed
+1. The observation datatype has been changed to `np.int64`. This is a bug in the original pysc2, see issue [#240](https://github.com/deepmind/pysc2/issues/240) in the original repo.
+2. Added the raw action interface.
+3. `agent.py` has been configured to enable raw observation by default.
 
 # Quick Start Guide
 

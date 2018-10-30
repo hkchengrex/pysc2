@@ -441,8 +441,8 @@ class Functions(object):
     if len(self._func_dict) != len(self._func_list):
       raise ValueError("Function names must be unique.")
 
-    for k in self._func_dict:
-      print(k)
+    # for k in self._func_dict:
+    #   print(k)
 
   def __getattr__(self, name):
     return self._func_dict[name]
