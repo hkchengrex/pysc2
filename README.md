@@ -64,9 +64,11 @@ and
 `python -m pysc2.bin.agent --map CollectMineralShards --agent pysc2.agents.raw_agent.CollectMineralShards`
 
 ## What we have changed
-1. The observation datatype has been changed to `np.int64`. This is a bug in the original pysc2, see issue [#240](https://github.com/deepmind/pysc2/issues/240) in the original repo.
+1. The observation data type has been changed to `np.int64`. This is a bug in the original pysc2, see issue [#240](https://github.com/deepmind/pysc2/issues/240) in the original repo.
 2. Added the raw action interface.
 3. `agent.py` has been configured to enable raw observation by default.
+
+The README below is the same as the upstream repo.
 
 # Quick Start Guide
 
