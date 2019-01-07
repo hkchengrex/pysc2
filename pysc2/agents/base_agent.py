@@ -26,12 +26,14 @@ class BaseAgent(object):
   It can also act as a passive agent that does nothing but no-ops.
   """
 
-  def __init__(self):
+  def __init__(self, sc2_env):
     self.reward = 0
     self.episodes = 0
     self.steps = 0
     self.obs_spec = None
     self.action_spec = None
+
+    self.sc2_env = sc2_env
 
   def setup(self, obs_spec, action_spec):
     self.obs_spec = obs_spec

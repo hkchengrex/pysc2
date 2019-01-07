@@ -99,8 +99,8 @@ def run_thread(agent_classes, players, map_name, visualize):
       game_steps_per_episode=FLAGS.game_steps_per_episode,
       disable_fog=FLAGS.disable_fog,
       visualize=visualize) as env:
+    agents = [agent_cls(env) for agent_cls in agent_classes]
     env = available_actions_printer.AvailableActionsPrinter(env)
-    agents = [agent_cls() for agent_cls in agent_classes]
     run_loop.run_loop(agents, env, FLAGS.max_agent_steps, FLAGS.max_episodes)
     if FLAGS.save_replay:
       env.save_replay(agent_classes[0].__name__)
