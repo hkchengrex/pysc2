@@ -1,4 +1,4 @@
-import math
+from .point import Point
 
 PLAYER_NEUTRAL = 16
 
@@ -36,10 +36,10 @@ class RawUnit():
 
     @property
     def pos(self):
-        return self.posx, self.posy
+        return Point(self.posx, self.posy)
 
     def dist_to(self, other):
-        return math.sqrt((self.posx-other.posx)**2 + (self.posy-other.posy)**2)
+        return self.pos.dist(other.pos)
 
     def __repr__(self):
         return 'Unit type %d; tag %d' % (self.unit_type, self.tag)
