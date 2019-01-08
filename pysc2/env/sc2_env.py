@@ -644,6 +644,10 @@ class SC2Env(environment.Base):
     self._parallel.run(
         (c.chat, message) for c, message in zip(self._controllers, messages))
 
+  def request_query(self, queries):
+    return self._parallel.run(
+      (c.request_query, query) for c, query in zip(self._controllers, queries))
+
   def save_replay(self, replay_dir, prefix=None):
     if prefix is None:
       prefix = self._map_name

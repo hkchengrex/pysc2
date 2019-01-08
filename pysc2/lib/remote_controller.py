@@ -218,6 +218,9 @@ class RemoteController(object):
     """Get the basic information about the game."""
     return self._client.send(game_info=sc_pb.RequestGameInfo())
 
+  def request_query(self, query):
+    return self._client.send(query=query)
+
   @valid_status(Status.in_game, Status.in_replay)
   @sw.decorate
   def data_raw(self):

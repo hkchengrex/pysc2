@@ -51,3 +51,6 @@ class RawUnit():
         if type(other) == int:
             return self.tag == other
         return self.tag == other.tag
+
+    def __hash__(self):
+        return hash(self.tag)
