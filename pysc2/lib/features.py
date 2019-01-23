@@ -414,7 +414,7 @@ class AgentInterfaceFormat(object):
       use_unit_counts=False,
       use_camera_position=False,
       hide_specific_actions=True,
-      raw_dimensions=(9999, 9999)): # This is temp... but as good as it sounds ah? TODO: Any fix?
+      raw_dimensions=(99999, 99999)): # This is temp... but as good as it sounds ah? TODO: Any fix?
     """Initializer.
 
     Args:
@@ -1129,7 +1129,7 @@ class Features(object):
         sizes = aif.action_dimensions.screen
       elif t.name == "minimap":
         sizes = aif.action_dimensions.minimap
-      elif t.name == "raw":
+      elif t.name == "raw_pos":
         sizes = aif.raw_dimensions
         is_raw = True
       else:

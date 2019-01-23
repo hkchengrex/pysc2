@@ -24,6 +24,7 @@ from pysc2.lib import actions
 from pysc2.lib import features
 
 from pysc2.lib import raw_units as ru
+from pysc2.lib import units
 
 _PLAYER_SELF = features.PlayerRelative.SELF
 _PLAYER_NEUTRAL = features.PlayerRelative.NEUTRAL  # beacon/minerals
@@ -43,7 +44,7 @@ class MoveToBeacon(base_agent.BaseAgent):
         target = u.pos
       else:
         marine = u.tag
-        
+
     return FUNCTIONS.Move_raw_pos("now", target, marine)
 
 class CollectMineralShards(base_agent.BaseAgent):
@@ -87,3 +88,32 @@ class CollectMineralShards(base_agent.BaseAgent):
         return FUNCTIONS.Move_raw_pos("now", tar.pos, m.tag)
 
     return FUNCTIONS.no_op()
+
+class BuildDrone(base_agent.BaseAgent):
+  """An agent that tries to build drones."""
+
+  def step(self, obs):
+    super(BuildDrone, self).step(obs)
+
+    raw_units = [ru.RawUnit(u) for u in obs.observation.raw_units]
+
+    # See also https://github.com/Blizzard/s2client-proto/blob/238b7a9b38f98504adf934808b1ed61f534048aa/s2clientprotocol/sc2api.proto#L562
+    # Note that the food cap and food used seems to be inverted in the prototxt, but not in pysc2
+    minerals = obs.observation.player.minerals
+    food_cap = obs.observation.player.food_cap
+    food_used = obs.observation.player.food_used
+
+    if food_cap > food_used:
+      if minerals >= 50:
+        for u in raw_units:
+          if u.unit_type == units.Zerg.Larva:
+            return FUNCTIONS.Train_Drone_raw_quick("now", u.tag)
+            
+    elif minerals >= 100:
+      for u in raw_units:
+          if u.unit_type == units.Zerg.Larva:
+            return FUNCTIONS.Train_Overlord_raw_quick("now", u.tag)
+
+    return FUNCTIONS.no_op()
+        
+    

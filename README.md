@@ -54,7 +54,7 @@ This is a fork made by some folks in HKUST. There are three interfaces to intera
 
 ## Test the raw interface
 
-We have written two simple scripted agents for MoveToBeacon and CollectMineralShards.
+We have written two simple scripted agents for minigames MoveToBeacon and CollectMineralShards.
 You can run them by:
 
 `python -m pysc2.bin.agent --map MoveToBeacon --agent pysc2.agents.raw_agent.MoveToBeacon`
@@ -62,6 +62,10 @@ You can run them by:
 and
 
 `python -m pysc2.bin.agent --map CollectMineralShards --agent pysc2.agents.raw_agent.CollectMineralShards`
+
+Also, we have written an infinite drone building script in Simple64 to give users a better idea on how to use this fork:
+
+`python -m pysc2.bin.agent --map Simple64 --agent pysc2.agents.raw_agent.BuildDrone --agent_race zerg`
 
 ## What we have changed
 1. The observation data type has been changed to `np.int64`. This is a bug in the original pysc2, see issue [#240](https://github.com/deepmind/pysc2/issues/240) in the original repo.
