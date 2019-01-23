@@ -146,12 +146,14 @@ def generate_py_abilities(data):
                           sc_data.AbilityData.PointOrNone):
       print_action(next(func_ids), name + "_quick", "cmd_quick", ab_id,
                    ability.remaps_to_ability_id)
+
     if ability.target != sc_data.AbilityData.Target.Value("None"):
       print_action(next(func_ids), name+ "_screen", "cmd_screen", ab_id,
                    ability.remaps_to_ability_id)
       if ability.allow_minimap:
         print_action(next(func_ids), name + "_minimap", "cmd_minimap", ab_id,
                      ability.remaps_to_ability_id)
+
     if ability.allow_autocast:
       print_action(next(func_ids), name + "_autocast", "autocast", ab_id,
                    ability.remaps_to_ability_id)
@@ -167,9 +169,18 @@ def generate_py_abilities(data):
 
     name = generate_name(ability).replace(" ", "_")
 
+    if ability.target in (sc_data.AbilityData.Target.Value("None"),
+                          sc_data.AbilityData.PointOrNone):
+      print_action(next(func_ids), name + "_raw_quick", "raw_quick", ab_id,
+                   ability.remaps_to_ability_id)
+
     if ability.target != sc_data.AbilityData.Target.Value("None"):
-      print_action(next(func_ids), name+ "_raw", "cmd_raw", ab_id,
+      print_action(next(func_ids), name+ "_raw_pos", "raw_pos", ab_id,
                     ability.remaps_to_ability_id)
+
+    if ability.allow_autocast:
+      print_action(next(func_ids), name + "_raw_autocast", "raw_autocast", ab_id,
+                   ability.remaps_to_ability_id)
         
 
 
