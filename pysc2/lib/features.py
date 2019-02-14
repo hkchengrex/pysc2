@@ -1110,7 +1110,7 @@ class Features(object):
     except KeyError:
       raise ValueError("Invalid function id: %s." % func_id)
 
-    # Available?
+    # Available? 
     if not (skip_available or func_id in self.available_actions(obs)) and 'raw' not in func.name:
       raise ValueError("Function %s/%s is currently not available" % (
           func_id, func.name))
