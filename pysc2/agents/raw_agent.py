@@ -45,7 +45,7 @@ class MoveToBeacon(base_agent.BaseAgent):
       else:
         marine = u.tag
 
-    return FUNCTIONS.Move_raw_pos("now", target, marine)
+    return FUNCTIONS.Move_raw_pos("now", target, [marine])
 
 class CollectMineralShards(base_agent.BaseAgent):
   """An agent for solving the CollectMineralShards map with feature units using the raw interface."""
@@ -85,7 +85,7 @@ class CollectMineralShards(base_agent.BaseAgent):
         tar = self.minerals[min_idx]
         self.marines_target[i] = tar.tag
         del self.minerals[min_idx]
-        return FUNCTIONS.Move_raw_pos("now", tar.pos, m.tag)
+        return FUNCTIONS.Move_raw_pos("now", tar.pos, [m.tag])
 
     return FUNCTIONS.no_op()
 
@@ -107,12 +107,12 @@ class BuildDrone(base_agent.BaseAgent):
       if minerals >= 50:
         for u in raw_units:
           if u.unit_type == units.Zerg.Larva:
-            return FUNCTIONS.Train_Drone_raw_quick("now", u.tag)
+            return FUNCTIONS.Train_Drone_raw_quick("now", [u.tag])
             
     elif minerals >= 100:
       for u in raw_units:
           if u.unit_type == units.Zerg.Larva:
-            return FUNCTIONS.Train_Overlord_raw_quick("now", u.tag)
+            return FUNCTIONS.Train_Overlord_raw_quick("now", [u.tag])
 
     return FUNCTIONS.no_op()
         

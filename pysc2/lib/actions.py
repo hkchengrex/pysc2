@@ -162,7 +162,7 @@ def raw_pos(action, action_space, ability_id, queued, raw_pos, commanded):
   # Got <s2clientprotocol.raw_pb2.ActionRawUnitCommand> here
   action_cmd = action.action_raw.unit_command
   action_cmd.ability_id = ability_id
-  action_cmd.unit_tags.append(commanded)
+  action_cmd.unit_tags.extend(commanded)
   action_cmd.queue_command = queued
   action_cmd.target_world_space_pos.x = raw_pos.x/100
   action_cmd.target_world_space_pos.y = raw_pos.y/100
@@ -172,7 +172,7 @@ def raw_quick(action, action_space, ability_id, queued, commanded):
   # Got <s2clientprotocol.raw_pb2.ActionRawUnitCommand> here
   action_cmd = action.action_raw.unit_command
   action_cmd.ability_id = ability_id
-  action_cmd.unit_tags.append(commanded)
+  action_cmd.unit_tags.extend(commanded)
   action_cmd.queue_command = queued
 
 def raw_autocast(action, action_space, ability_id, commanded):
@@ -180,7 +180,7 @@ def raw_autocast(action, action_space, ability_id, commanded):
   # Got <s2clientprotocol.raw_pb2.ActionRawToggleAutocast> here
   action_cmd = action.action_raw.toggle_autocast
   action_cmd.ability_id = ability_id
-  action_cmd.unit_tags.append(commanded)
+  action_cmd.unit_tags.extend(commanded)
 
 
 class ArgumentType(collections.namedtuple(
@@ -227,6 +227,13 @@ class ArgumentType(collections.namedtuple(
     return factory
 
   @classmethod
+  def list_int(cls):  # No range because it's unknown at this time.
+    """Create an ArgumentType that is represented by a list[uint64]."""
+    def factory(i, name):
+      return cls(i, name, 0, lambda a: a, None)
+    return factory
+
+  @classmethod
   def spec(cls, id_, name, sizes):
     """Create an ArgumentType to be used in ValidActions."""
     return cls(id_, name, sizes, None, None)
@@ -256,7 +263,7 @@ class Arguments(collections.namedtuple("Arguments", [
     build_queue_id: Which build queue index to target.
     unload_id: Which unit to target in a transport/nydus/command center.
     raw_pos: A raw point in game
-    commanded: Tag if of unit under command
+    commanded: list of tag ids of units under command
   """
   ___slots__ = ()
 
@@ -346,7 +353,7 @@ TYPES = Arguments.types(
     build_queue_id=ArgumentType.scalar(10),  # Depends on current build queue.
     unload_id=ArgumentType.scalar(500),  # Depends on the current loaded units.
     raw_pos=ArgumentType.point(),
-    commanded=ArgumentType.scalar(-1),
+    commanded=ArgumentType.list_int(),
 )
 
 # Which argument types do each function need?

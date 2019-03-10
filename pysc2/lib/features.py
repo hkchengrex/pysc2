@@ -1132,18 +1132,21 @@ class Features(object):
       elif t.name == "raw_pos":
         sizes = aif.raw_dimensions
         is_raw = True
+      elif 'raw' in t.name:
+        is_raw = True
       else:
         sizes = t.sizes
 
-      if len(sizes) != len(arg):
-        raise ValueError(
-            "Wrong number of values for argument of %s, got: %s" % (
-                func, func_call.arguments))
+      if not is_raw:
+        if len(sizes) != len(arg):
+          raise ValueError(
+              "Wrong number of values for argument of %s, got: %s" % (
+                  func, func_call.arguments))
 
-      for s, a in zip(sizes, arg):
-        if not 0 <= a < s and s >= 0:
-          raise ValueError("Argument is out of range for %s, got: %s" % (
-              func, func_call.arguments))
+        for s, a in zip(sizes, arg):
+          if not 0 <= a < s and s >= 0:
+            raise ValueError("Argument is out of range for %s, got: %s" % (
+                func, func_call.arguments))
 
     # Convert them to python types.
     kwargs = {type_.name: type_.fn(a)
