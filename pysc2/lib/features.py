@@ -1132,7 +1132,7 @@ class Features(object):
       elif t.name == "raw_pos":
         sizes = aif.raw_dimensions
         is_raw = True
-      elif 'raw' in t.name:
+      elif t.name == "commanded":
         is_raw = True
       else:
         sizes = t.sizes
