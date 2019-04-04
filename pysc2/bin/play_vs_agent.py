@@ -87,7 +87,8 @@ flags.DEFINE_enum("action_space", "FEATURES",
                   "and rgb observations.")
 flags.DEFINE_bool("use_feature_units", False,
                   "Whether to include feature units.")
-
+flags.DEFINE_bool("use_raw_units", True,
+                  "Whether to include raw units.")
 flags.DEFINE_string("user_name", getpass.getuser(),
                     "Name of the human player for replays.")
 flags.DEFINE_enum("user_race", "random", sc2_env.Race._member_names_,  # pylint: disable=protected-access
@@ -132,9 +133,10 @@ def agent():
           rgb_screen=FLAGS.rgb_screen_size,
           rgb_minimap=FLAGS.rgb_minimap_size,
           action_space=FLAGS.action_space,
-          use_feature_units=FLAGS.use_feature_units),
+          use_feature_units=FLAGS.use_feature_units,
+          use_raw_units=FLAGS.use_raw_units),
       visualize=FLAGS.render) as env:
-    agents = [agent_cls()]
+    agents = [agent_cls(env)]
     logging.info("Connected, starting run_loop.")
     try:
       run_loop.run_loop(agents, env)

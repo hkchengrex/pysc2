@@ -67,10 +67,17 @@ Also, we have written an infinite drone building script in Simple64 to give user
 
 `python -m pysc2.bin.agent --map Simple64 --agent pysc2.agents.raw_agent.BuildDrone --agent_race zerg`
 
+To play as a human against an agent
+
+`python -m pysc2.bin.play_vs_agent --human --map Simple64`
+
+`python -m pysc2.bin.play_vs_agent --agent bot.agent.YuLungAgent --agent_race zerg`
+
 ## What we have changed
 1. The observation data type has been changed to `np.int64`. This is a bug in the original pysc2, see issue [#240](https://github.com/deepmind/pysc2/issues/240) in the original repo.
 2. Added the raw action interface.
 3. `agent.py` has been configured to enable raw observation by default.
+4. Modified the play_vs_agent.py to allow raw interface
 
 The README below is the same as the upstream repo.
 
