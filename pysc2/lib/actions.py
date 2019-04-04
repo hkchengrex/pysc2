@@ -442,9 +442,12 @@ class Function(collections.namedtuple(
 
   def str(self, space=False):
     """String version. Set space=True to line them all up nicely."""
-    return "%s/%s (%s)" % (str(int(self.id)).rjust(space and 4),
-                           self.name.ljust(space and 50),
-                           "; ".join(str(a) for a in self.args))
+    try:
+        return "%s/%s (%s)" % (str(int(self.id)).rjust(space and 4),
+                               self.name.ljust(space and 50),
+                               "; ".join(str(a) for a in self.args))
+    except:
+        return 'Cannot format string, '
 
 
 class Functions(object):
