@@ -174,8 +174,15 @@ def generate_py_abilities(data):
       print_action(next(func_ids), name + "_raw_quick", "raw_quick", ab_id,
                    ability.remaps_to_ability_id)
 
-    if ability.target != sc_data.AbilityData.Target.Value("None"):
+    if ability.target in (sc_data.AbilityData.Point, 
+                          sc_data.AbilityData.PointOrUnit, 
+                          sc_data.AbilityData.PointOrNone):
       print_action(next(func_ids), name+ "_raw_pos", "raw_pos", ab_id,
+                    ability.remaps_to_ability_id)
+
+    if ability.target in (sc_data.AbilityData.Unit, 
+                          sc_data.AbilityData.PointOrUnit):
+      print_action(next(func_ids), name+ "_raw_targeted", "raw_targeted", ab_id,
                     ability.remaps_to_ability_id)
 
     if ability.allow_autocast:
