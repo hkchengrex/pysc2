@@ -333,6 +333,7 @@ class SC2Env(environment.Base):
     if agent_interface_format.feature_dimensions:
       interface.feature_layer.width = (
           agent_interface_format.camera_width_world_units)
+          
       agent_interface_format.feature_dimensions.screen.assign_to(
           interface.feature_layer.resolution)
       agent_interface_format.feature_dimensions.minimap.assign_to(

@@ -52,6 +52,8 @@ flags.DEFINE_bool("use_raw_units", True,
                   "Whether to include raw units.")
 flags.DEFINE_bool("disable_fog", False, "Whether to disable Fog of War.")
 
+flags.DEFINE_integer("camera_width", 24, "Camera width to be used")
+
 flags.DEFINE_integer("max_agent_steps", 0, "Total agent steps.")
 flags.DEFINE_integer("game_steps_per_episode", None, "Game steps per episode.")
 flags.DEFINE_integer("max_episodes", 0, "Total episodes.")
@@ -94,7 +96,8 @@ def run_thread(agent_classes, players, map_name, visualize):
           rgb_minimap=FLAGS.rgb_minimap_size,
           action_space=FLAGS.action_space,
           use_feature_units=FLAGS.use_feature_units,
-          use_raw_units=FLAGS.use_raw_units),
+          use_raw_units=FLAGS.use_raw_units,
+          camera_width_world_units=FLAGS.camera_width),
       step_mul=FLAGS.step_mul,
       game_steps_per_episode=FLAGS.game_steps_per_episode,
       disable_fog=FLAGS.disable_fog,
